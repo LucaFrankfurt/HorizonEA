@@ -115,7 +115,7 @@ Set `SERVICE_PASSWORD_POSTGRES` (database password) and optionally `SERVICE_PASS
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
-Open <http://localhost:3000> (or `APP_PORT`). The app waits for the database health check, applies migrations automatically and – with `SEED_DEMO_DATA=true` (default in compose) – loads the demo data into the empty database. Data lives in the `pgdata` volume and survives `docker compose down`; add `-v` to delete it.
+Open <http://localhost:3000> (or `APP_PORT`). The app waits for the database health check, applies migrations automatically and – with `SEED_DEMO_DATA=true` (default in compose) – loads the demo data into the empty database. Data lives in the `postgres-data` volume and survives `docker compose down`; add `-v` to delete it.
 
 Useful commands:
 
@@ -145,7 +145,7 @@ docker run -d -p 3000:3000 -v horizon-data:/app/data -e BASIC_AUTH_PASSWORD=chan
    - `SERVICE_PASSWORD_LOGIN` – generated password for the HTTP Basic Auth login. The user name is `admin` (change it with `BASIC_AUTH_USER`). To run without a login, remove the `BASIC_AUTH_PASSWORD` line from `docker-compose.yml`.
    - `SEED_DEMO_DATA` (default `true`), `ALLOW_DEMO_RESET` (default `true`), `NEXT_PUBLIC_CURRENCY` (default `EUR`).
 3. Domain: `SERVICE_URL_APP_3000` tells Coolify to route the resource's domain to port 3000 of the `app` service. With a wildcard domain configured, Coolify generates one; otherwise enter your own for the `app` service including the internal port, e.g. `https://ea.example.com:3000`. Visitors still use normal HTTPS.
-4. Deploy. Both containers have health checks; `/api/health` stays reachable without login so the check works. The `pgdata` volume keeps the data across deployments.
+4. Deploy. Both containers have health checks; `/api/health` stays reachable without login so the check works. The `postgres-data` volume keeps the data across deployments.
 
 > PostgreSQL only applies the password when its volume is first created. If you change `SERVICE_PASSWORD_POSTGRES` later, change it inside the database as well (or delete the volume to start over).
 
@@ -344,7 +344,7 @@ All endpoints accept and return JSON. Validation errors return `422 { "error": "
 | Initiatives | `GET/POST /api/initiatives` · `…/:id` |
 | Initiative items (As-Is → To-Be) | `GET/POST /api/initiative-items` · `…/:id` |
 | Initiative phases | `GET/POST /api/initiative-phases` · `…/:id` |
-| Analytics | `GET /api/dashboard` (KPIs, EOL list, risk radar) · `GET /api/health` |
+| Analytics | `GET /api/dashboard` (KPIs, EOL list, risk radar) · `GET /api/health` (liveness + database status) · `GET /api/health?ready` (503 unless the database works) |
 | Bulk | `GET /api/export` · `GET /api/export/:collection?format=csv\|json` · `POST /api/import` · `POST /api/demo-data[?empty=1]` |
 
 List endpoints support equality filters on any field and `q` for a name search, e.g. `GET /api/applications?lifecycleStatus=Phase-Out&q=sap`. `PATCH` (and `PUT`) apply partial updates – fields that are not sent are left unchanged.

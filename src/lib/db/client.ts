@@ -42,6 +42,7 @@ async function open(options: { autoSeed: boolean }): Promise<DbHandle> {
     const pool = new pg.Pool({
       connectionString: process.env.DATABASE_URL,
       max: Number(process.env.DATABASE_POOL_SIZE ?? 10),
+      connectionTimeoutMillis: 10_000,
     });
     const db = drizzle(pool, { schema });
     handle = { db, kind: "postgres", close: () => pool.end() };
@@ -56,17 +57,46 @@ async function open(options: { autoSeed: boolean }): Promise<DbHandle> {
     handle = { db, kind: "pglite", close: () => client.close() };
   }
 
-  const fresh = await isFreshDatabase(handle.db);
-  await runMigrations(handle);
+  try {
+    const fresh = await isFreshDatabase(handle.db);
+    await runMigrations(handle);
 
-  const seedSetting = process.env.SEED_DEMO_DATA;
-  const shouldSeed = seedSetting ? seedSetting === "true" : handle.kind === "pglite";
-  if (options.autoSeed && fresh && shouldSeed) {
-    const { seedDatabase } = await import("./seed");
-    await seedDatabase(handle.db);
-    console.info("[horizon-ea] Fresh database detected – demo data loaded.");
+    const seedSetting = process.env.SEED_DEMO_DATA;
+    const shouldSeed = seedSetting ? seedSetting === "true" : handle.kind === "pglite";
+    if (options.autoSeed && fresh && shouldSeed) {
+      const { seedDatabase } = await import("./seed");
+      await seedDatabase(handle.db);
+      console.info("[horizon-ea] Fresh database detected – demo data loaded.");
+    }
+    return handle;
+  } catch (error) {
+    // Don't leak pools / file locks when the next request retries.
+    await handle.close().catch(() => {});
+    throw error;
   }
-  return handle;
+}
+
+/**
+ * Turns a database error into a short message plus an actionable hint (used in
+ * logs and by /api/health). Never contains credentials.
+ */
+export function describeDbError(error: unknown): { code?: string; message: string; hint?: string } {
+  let root = error as { code?: string; message?: string; cause?: unknown } | undefined;
+  while (root && typeof root === "object" && root.cause && typeof root.cause === "object") {
+    root = root.cause as typeof root;
+  }
+  const code = root?.code;
+  const message = String(root?.message ?? error).slice(0, 300);
+  const hints: Record<string, string> = {
+    "28P01":
+      "PostgreSQL rejected the password. PostgreSQL only applies POSTGRES_PASSWORD when its data volume is first created, so the volume was probably initialised with a different password. Set the database password back to the original value, or remove the database volume (all data is lost) and redeploy.",
+    "3D000": "The database in DATABASE_URL does not exist.",
+    ENOTFOUND: "The database host in DATABASE_URL cannot be resolved. Check the host name (docker compose service name) and that both containers share a network.",
+    EAI_AGAIN: "The database host in DATABASE_URL cannot be resolved yet (DNS). Check that the database container is running.",
+    ECONNREFUSED: "The database is not accepting connections. Check that the database container is running and healthy.",
+    ETIMEDOUT: "Connecting to the database timed out. Check the network between the app and the database.",
+  };
+  return { code, message, hint: code ? hints[code] : undefined };
 }
 
 async function isFreshDatabase(db: Database) {
