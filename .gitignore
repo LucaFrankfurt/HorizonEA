@@ -8,7 +8,7 @@ next-env.d.ts
 *.tsbuildinfo
 
 # local embedded database (PGlite)
-data/
+/data/
 
 # env files
 .env
