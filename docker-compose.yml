@@ -1,0 +1,45 @@
+# HorizonEA – application + PostgreSQL with a persistent volume.
+#   docker compose up -d --build      → http://localhost:3000
+# Configuration is read from .env (see .env.example).
+name: horizon-ea
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-horizon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-horizon}
+      POSTGRES_DB: ${POSTGRES_DB:-horizon}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    # Uncomment to reach the database from the host (e.g. npm run dev against Postgres)
+    # ports:
+    #   - "5432:5432"
+
+  app:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-EUR}
+    image: horizon-ea:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-horizon}:${POSTGRES_PASSWORD:-horizon}@db:5432/${POSTGRES_DB:-horizon}
+      # Load the demo landscape into a brand-new database (set to false for a clean start)
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      # Allow "Reset demo data" / "Clear all data" on the Import / Export page
+      ALLOW_DEMO_RESET: ${ALLOW_DEMO_RESET:-true}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+volumes:
+  pgdata:

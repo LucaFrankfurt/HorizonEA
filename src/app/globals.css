@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens. Status colours (good / warning / serious / critical) are
+ * reserved for state and are always paired with an icon or a label.
+ * Categorical series colours follow a fixed, colour-blind validated order.
+ */
+:root {
+  color-scheme: light;
+  --background: #f6f7f9;
+  --foreground: #191919;
+  --card: #ffffff;
+  --card-foreground: #191919;
+  --popover: #ffffff;
+  --popover-foreground: #191919;
+  --primary: #2370cd;
+  --primary-foreground: #ffffff;
+  --secondary: #eef0f3;
+  --secondary-foreground: #191919;
+  --muted: #f1f2f4;
+  --muted-foreground: #5f6368;
+  --accent: #e9eef6;
+  --accent-foreground: #191919;
+  --destructive: #c93233;
+  --destructive-foreground: #ffffff;
+  --border: #e2e4e8;
+  --input: #d5d8de;
+  --ring: #2370cd;
+  --sidebar: #ffffff;
+
+  --status-good: #0aac23;
+  --status-warning: #fbb315;
+  --status-serious: #f18a59;
+  --status-critical: #dc3c3d;
+  --status-info: #257de0;
+  --status-neutral: #8a8f98;
+  --status-mild: #e4c31b;
+
+  --series-1: #257de0;
+  --series-2: #f47230;
+  --series-3: #00b894;
+  --series-4: #f2a600;
+  --series-5: #ee7fac;
+  --series-6: #008a17;
+  --series-7: #6a4ce2;
+  --series-8: #ec4647;
+
+  --grid: #e7e7e7;
+  --axis: #c2c2c2;
+  --chart-surface: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0f1012;
+  --foreground: #efefef;
+  --card: #191919;
+  --card-foreground: #efefef;
+  --popover: #1f1f1f;
+  --popover-foreground: #efefef;
+  --primary: #338ced;
+  --primary-foreground: #ffffff;
+  --secondary: #262728;
+  --secondary-foreground: #efefef;
+  --muted: #222324;
+  --muted-foreground: #a0a0a0;
+  --accent: #23272e;
+  --accent-foreground: #efefef;
+  --destructive: #eb6263;
+  --destructive-foreground: #ffffff;
+  --border: #2e2f31;
+  --input: #3a3b3e;
+  --ring: #338ced;
+  --sidebar: #141516;
+
+  --status-good: #0aac23;
+  --status-warning: #fbb315;
+  --status-serious: #f18a59;
+  --status-critical: #dc3c3d;
+  --status-info: #338ced;
+  --status-neutral: #7d8189;
+  --status-mild: #d9bb1c;
+
+  --series-1: #338ced;
+  --series-2: #e76624;
+  --series-3: #00a888;
+  --series-4: #d28e05;
+  --series-5: #e24d8b;
+  --series-6: #0aac23;
+  --series-7: #9887ef;
+  --series-8: #eb6263;
+
+  --grid: #303030;
+  --axis: #474747;
+  --chart-surface: #191919;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-grid: var(--grid);
+  --color-axis: var(--axis);
+  --color-good: var(--status-good);
+  --color-warning: var(--status-warning);
+  --color-serious: var(--status-serious);
+  --color-critical: var(--status-critical);
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 0.6rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 25%, transparent);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+}
+
+/* React Flow theming */
+.react-flow {
+  --xy-background-color: transparent;
+  --xy-edge-stroke: var(--axis);
+  --xy-minimap-background-color: var(--card);
+  --xy-controls-button-background-color: var(--card);
+  --xy-controls-button-background-color-hover: var(--muted);
+  --xy-controls-button-color: var(--foreground);
+  --xy-controls-button-border-color: var(--border);
+  --xy-attribution-background-color: transparent;
+}
+.react-flow__controls {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.react-flow__edge-textbg {
+  fill: var(--card);
+}
+.react-flow__edge-text {
+  fill: var(--muted-foreground);
+  font-size: 10px;
+}
+.react-flow__attribution {
+  font-size: 9px;
+  opacity: 0.6;
+}
+.react-flow__attribution a {
+  color: var(--muted-foreground);
+}

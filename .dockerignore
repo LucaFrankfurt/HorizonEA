@@ -1,0 +1,17 @@
+.git
+.github
+.next
+node_modules
+data
+coverage
+tests
+*.log
+.env
+.env.*
+!.env.example
+Dockerfile
+docker-compose*.yml
+README.md
+AGENTS.md
+CLAUDE.md
+.DS_Store
