@@ -1,0 +1,20 @@
+# Local / self-managed Docker host override (not used by Coolify).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# Publishes the app on the host and falls back to local defaults when the
+# secrets from .env are not set (see .env.example).
+services:
+  db:
+    environment:
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES:-horizon}
+    # Uncomment to reach PostgreSQL from the host (e.g. npm run dev against it)
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+
+  app:
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      - DATABASE_URL=postgres://horizon:${SERVICE_PASSWORD_POSTGRES:-horizon}@db:5432/horizon
+      - BASIC_AUTH_PASSWORD=${SERVICE_PASSWORD_LOGIN:-}

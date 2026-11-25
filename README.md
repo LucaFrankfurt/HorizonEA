@@ -17,7 +17,7 @@
 - [Features](#features)
 - [Tech stack](#tech-stack)
 - [Quick start (local)](#quick-start-local)
-- [Docker deployment](#docker-deployment)
+- [Docker deployment](#docker-deployment) · [Deploy with Coolify](#deploy-with-coolify)
 - [Configuration](#configuration)
 - [npm scripts](#npm-scripts)
 - [Domain model](#domain-model)
@@ -101,35 +101,53 @@ npm run start
 
 ## Docker deployment
 
-The repository ships a multi-stage `Dockerfile` (Next.js standalone output, non-root user, health check) and a `docker-compose.yml` with the application, **PostgreSQL 17** and a persistent volume.
+The repository ships a multi-stage `Dockerfile` (Next.js standalone output, non-root user, health check) and a `docker-compose.yml` with the application, **PostgreSQL 17** and a persistent volume. The compose file is written for [Coolify](#deploy-with-coolify): it publishes **no host ports** and takes its secrets from generated variables. On a plain Docker host, add `docker-compose.local.yml`, which publishes the port and supplies local defaults.
+
+### Local / plain Docker host
 
 ```bash
 cp .env.example .env
 ```
 
-Change `POSTGRES_PASSWORD` in `.env`, then:
+Set `SERVICE_PASSWORD_POSTGRES` (database password) and optionally `SERVICE_PASSWORD_LOGIN` (enables the login) in `.env`, then:
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
-Open <http://localhost:3000> (or `APP_PORT`). The app waits for the database health check, applies migrations automatically and – with `SEED_DEMO_DATA=true` (default in compose) – loads the demo data into the empty database. Data lives in the `pgdata` volume and survives `docker compose down`; use `docker compose down -v` to delete it.
+Open <http://localhost:3000> (or `APP_PORT`). The app waits for the database health check, applies migrations automatically and – with `SEED_DEMO_DATA=true` (default in compose) – loads the demo data into the empty database. Data lives in the `pgdata` volume and survives `docker compose down`; add `-v` to delete it.
 
 Useful commands:
 
 ```bash
-docker compose logs -f app
+docker compose -f docker-compose.yml -f docker-compose.local.yml logs -f app
 ```
 
 ```bash
-docker compose exec db psql -U horizon -d horizon
+docker compose -f docker-compose.yml -f docker-compose.local.yml exec db psql -U horizon -d horizon
 ```
 
 The image can also run on its own with the embedded database (mount a volume for `/app/data`):
 
 ```bash
-docker run -d -p 3000:3000 -v horizon-data:/app/data horizon-ea:latest
+docker build -t horizon-ea .
 ```
+
+```bash
+docker run -d -p 3000:3000 -v horizon-data:/app/data -e BASIC_AUTH_PASSWORD=change-me horizon-ea
+```
+
+### Deploy with Coolify
+
+1. In Coolify create a new resource from this Git repository and choose the **Docker Compose** build pack. Keep the compose location `/docker-compose.yml` and select the branch to deploy (e.g. `main`).
+2. Coolify reads the compose file and fills in the **Environment Variables** tab:
+   - `SERVICE_PASSWORD_POSTGRES` – generated database password (the database is only reachable from the app container).
+   - `SERVICE_PASSWORD_LOGIN` – generated password for the HTTP Basic Auth login. The user name is `admin` (change it with `BASIC_AUTH_USER`). To run without a login, remove the `BASIC_AUTH_PASSWORD` line from `docker-compose.yml`.
+   - `SEED_DEMO_DATA` (default `true`), `ALLOW_DEMO_RESET` (default `true`), `NEXT_PUBLIC_CURRENCY` (default `EUR`).
+3. Domain: `SERVICE_URL_APP_3000` tells Coolify to route the resource's domain to port 3000 of the `app` service. With a wildcard domain configured, Coolify generates one; otherwise enter your own for the `app` service including the internal port, e.g. `https://ea.example.com:3000`. Visitors still use normal HTTPS.
+4. Deploy. Both containers have health checks; `/api/health` stays reachable without login so the check works. The `pgdata` volume keeps the data across deployments.
+
+> PostgreSQL only applies the password when its volume is first created. If you change `SERVICE_PASSWORD_POSTGRES` later, change it inside the database as well (or delete the volume to start over).
 
 ## Configuration
 
@@ -144,7 +162,9 @@ All settings are environment variables (see [`.env.example`](.env.example)); `np
 | `ALLOW_DEMO_RESET` | `true` | Enables “Reset demo data” / “Clear all data” and `POST /api/demo-data`. Set to `false` on shared instances. |
 | `NEXT_PUBLIC_CURRENCY` | `EUR` | Currency for budgets (build-time for client components; a Docker build arg). |
 | `MIGRATIONS_DIR` | `./drizzle` | Location of the SQL migrations. |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` / `APP_PORT` | `horizon` / – / `horizon` / `3000` | docker compose only. |
+| `BASIC_AUTH_PASSWORD` / `BASIC_AUTH_USER` | – / `admin` | Enables HTTP Basic Auth for the UI and API when a password is set (`/api/health` stays open). |
+| `SERVICE_PASSWORD_POSTGRES` / `SERVICE_PASSWORD_LOGIN` | generated by Coolify | docker compose: database password and login password (mapped to `BASIC_AUTH_PASSWORD`). Set them in `.env` for local compose runs. |
+| `APP_PORT` | `3000` | Host port used by `docker-compose.local.yml`. |
 
 ## npm scripts
 
@@ -356,12 +376,13 @@ curl -X POST http://localhost:3000/api/applications \
 │       ├── validation.ts       Zod schemas and cross-field rules
 │       └── import-export.ts    JSON / CSV import & export
 ├── tests/                      node:test suites
-├── Dockerfile, docker-compose.yml, .env.example
+├── src/proxy.ts                optional HTTP Basic Auth (Next.js proxy)
+├── Dockerfile, docker-compose.yml (Coolify-ready), docker-compose.local.yml, .env.example
 ```
 
 ## Operational notes
 
-- **Authentication** is not included. Put HorizonEA behind your SSO / reverse proxy (e.g. oauth2-proxy, Azure App Proxy, Cloudflare Access) and set `ALLOW_DEMO_RESET=false` on shared instances.
+- **Authentication**: a single shared login (HTTP Basic Auth via `BASIC_AUTH_PASSWORD`, enabled by default in the Coolify setup) protects the UI and API. There are no user accounts or roles – for those, put HorizonEA behind your SSO / reverse proxy (e.g. oauth2-proxy, Cloudflare Access). Set `ALLOW_DEMO_RESET=false` on shared instances.
 - **Migrations** run automatically on start-up. When running several replicas, run `npm run db:migrate` once as a release step instead of letting replicas race.
 - **Backups**: use the JSON snapshot export, or standard PostgreSQL tooling (`pg_dump`) for the compose volume.
 - **Schema changes**: edit `src/lib/db/schema.ts`, run `npm run db:generate`, commit the new file in `drizzle/`.
